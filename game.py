@@ -2,6 +2,7 @@
 the Dungeon Explorer game logic
 """
 from pydantic import BaseModel
+from effects import Effect, RandomBlur, FadeIn, Flash
 from typing import Callable, Literal
 from moves import Move, player_move_finished
 import time
@@ -85,6 +86,7 @@ class DungeonGame(BaseModel):
     return_x: int = 1
     return_y: int = 1
     explosions: list[Explosion] = []
+    effects: list[Effect] = []
 
 def parse_level(level: list[str]) -> list[list[str]]:
     return [list(row) for row in level]
@@ -95,6 +97,14 @@ def check_collision(game: DungeonGame) -> None:
             take_damage(game)
             return  # one hit per frame is enough
 
+
+def update_effects(game: DungeonGame) -> None:
+    new_effects = []
+    for e in game.effects:
+        e.countdown -= 1
+        if e.countdown > 0:
+            new_effects.append(e)
+    game.effects = new_effects
 
 def update(game: DungeonGame) -> None:
     for m in game.current_level.monsters:
@@ -133,6 +143,7 @@ def check_teleporters(game : DungeonGame) -> None:
         if game.x == t.x and game.y == t.y:
             game.x = t.target_x
             game.y = t.target_y
+            game.effects.append(RandomBlur(x=game.x, y=game.y, countdown=80))
 
 
 
@@ -299,8 +310,12 @@ def move_player(game: DungeonGame, direction: str, pulling: bool = False) -> Non
         game.moves.clear()
 
     if game.current_level.level[new_y][new_x] == "^":
+        game.effects.append(Flash(x=new_x, y=new_y, countdown=255))
+        game.current_level.level[new_y][new_x] = "."
         if game.moves:
             game.moves[-1].finished = take_damage
+        else:
+            take_damage(game)
     
     if game.x == 1 and game.y == 1 and game.current_level.level[1][0] == "#" and game.current_level.has_secret_door:
         game.current_level.level[1][0] = "S"
@@ -366,8 +381,10 @@ def start_game() -> DungeonGame:
     
     LEVELS, SECRET_LEVEL = create_levels()
 
-    return DungeonGame(
+    game = DungeonGame(
         x=1,
         y=1,
         current_level=LEVELS[0]
     )
+    game.effects.append(FadeIn(x=game.x, y=game.y, countdown=255))
+    return game

@@ -7,10 +7,9 @@ import cv2
 
 from pygame import mixer
 from cutscene import show_cutscene
-from game import start_game, move_player
-from game import update
-
-TILE_PATH = os.path.split(__file__)[0] + '/tiles'
+from game import start_game, move_player,update, update_effects
+from config import TILE_SIZE, SCREEN_SIZE_X, SCREEN_SIZE_Y, read_images
+from shop import visit_shop
 
 # title of the game window
 GAME_TITLE = "Dungeon Explorer"
@@ -47,37 +46,9 @@ PULL_MOVES = {
     "S": "down",
 }
 
-#
-# constants measured in pixels
-#
-SCREEN_SIZE_X, SCREEN_SIZE_Y = 1200, 800
-TILE_SIZE = 64
-
 mixer.init()
 mixer.music.load("dungeon_theme.flac")
 mixer.music.play(loops=-1)
-
-def read_image(filename: str) -> np.ndarray:
-    """
-    Reads an image from the given filename and doubles its size.
-    If the image file does not exist, an error is created.
-    """
-    img = cv2.imread(filename, cv2.IMREAD_UNCHANGED)  # preserve alpha channel
-    if img is None:
-        raise IOError(f"Image not found: '{filename}'")
-    img = np.kron(img, np.ones((2, 2, 1), dtype=img.dtype))  # double image size
-    # drop alpha channel if fully opaque (avoids slow blending for walls/floors)
-    if img.shape[2] == 4 and np.all(img[:, :, 3] == 255):
-        img = img[:, :, :3]
-    return img
-
-
-def read_images():
-    return {
-        filename[:-4]: read_image(os.path.join(TILE_PATH, filename))
-        for filename in os.listdir(TILE_PATH)
-        if filename.endswith(".png")
-    }
 
 
 def draw_tile(frame, x, y, image, xbase=0, ybase=0) -> None:
@@ -217,6 +188,10 @@ def draw(game, images, moves):
     for explosion in game.explosions:
         draw_explosion(frame, explosion, images)
 
+    # draw special effects
+    for e in game.effects:
+        e.draw(frame)
+
     # display complete image
     cv2.imshow(GAME_TITLE, frame)
 
@@ -225,6 +200,9 @@ def handle_keyboard(game):
     key = chr(cv2.waitKey(1) & 0xFF)
     if key in ("q", "Q"):
         game.status = "exited"
+    if key == "b":
+        visit_shop(game)
+        return None, False
     # Check for pull (Shift+WASD = uppercase)
     if key in PULL_MOVES:
         return PULL_MOVES[key], True
@@ -242,6 +220,7 @@ def main():
     while game.status == "running":
         draw(game, images, moves)
         update(game)
+        update_effects(game)
         moves = clean_moves(game, moves)
         clean_explosions(game)
         queued_move, pulling = handle_keyboard(game)
