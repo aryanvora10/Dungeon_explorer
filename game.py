@@ -197,11 +197,12 @@ def push_box(game: DungeonGame, box: Box, direction: str) -> bool:
     new_bx, new_by = get_next_position((box.x, box.y), direction)
     if is_tile_free_for_box(game, new_bx, new_by):
         # Animate the box moving
+        speed = 3.0 if game.current_level == SECRET_LEVEL else 1.5
         box.move = Move(
             tile="statue_orb",
             from_x=box.x, from_y=box.y,
             speed_x=new_bx - box.x, speed_y=new_by - box.y,
-            speed=1.5
+            speed=speed
         )
         game.moves.append(box.move)
         box.x = new_bx
@@ -226,14 +227,16 @@ def move_player(game: DungeonGame, direction: str, pulling: bool = False) -> Non
             # Box moved, player can step into its old position
             speed_x = target_x - game.x
             speed_y = target_y - game.y
-            move = Move(tile="player", from_x=game.x, from_y=game.y, speed_x=speed_x, speed_y=speed_y, speed=1.5)
+            speed = 3.0 if game.current_level == SECRET_LEVEL else 1.5
+            move = Move(tile="player", from_x=game.x, from_y=game.y, speed_x=speed_x, speed_y=speed_y, speed=speed)
             game.moves.append(move)
             new_x, new_y = target_x, target_y
         # If push failed (wall behind box), player doesn't move
     elif game.current_level.level[target_y][target_x] in allowed and (target_x != game.x or target_y != game.y):
         speed_x = target_x - game.x
         speed_y = target_y - game.y
-        move = Move(tile="player", from_x=game.x, from_y=game.y, speed_x=speed_x, speed_y=speed_y, speed=2.0)
+        speed = 4.0 if game.current_level == SECRET_LEVEL else 2.0
+        move = Move(tile="player", from_x=game.x, from_y=game.y, speed_x=speed_x, speed_y=speed_y, speed=speed)
         game.moves.append(move)
         new_x, new_y = target_x, target_y
 
@@ -246,11 +249,12 @@ def move_player(game: DungeonGame, direction: str, pulling: bool = False) -> Non
             pull_box = get_box_at(game, behind_x, behind_y)
             if pull_box is not None:
                 # Pull the box to the player's old position
+                speed = 3.0 if game.current_level == SECRET_LEVEL else 1.5
                 pull_box.move = Move(
                     tile="statue_orb",
                     from_x=pull_box.x, from_y=pull_box.y,
                     speed_x=game.x - pull_box.x, speed_y=game.y - pull_box.y,
-                    speed=1.5
+                    speed=speed
                 )
                 game.moves.append(pull_box.move)
                 pull_box.x = game.x

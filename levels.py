@@ -86,10 +86,10 @@ def create_levels():
     secret_level = Level(
         level=level_map_secret,
         monsters=[
-            Fireball(x=7, y=1, direction="down"),
-            Fireball(x=7, y=9, direction="up"),
-            Skeleton(x=1, y=4, direction="right"),
-            Skeleton(x=13, y=7, direction="left")
+            Fireball(x=7, y=1, direction="down", speed=1.5),
+            Fireball(x=7, y=9, direction="up", speed=1.5),
+            Skeleton(x=1, y=4, direction="right", speed=1.5),
+            Skeleton(x=13, y=7, direction="left", speed=1.5)
         ]
     )
 

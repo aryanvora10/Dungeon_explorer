@@ -203,6 +203,7 @@ def handle_keyboard(game):
     if key == "b":
         visit_shop(game)
         return None, False
+
     # Check for pull (Shift+WASD = uppercase)
     if key in PULL_MOVES:
         return PULL_MOVES[key], True

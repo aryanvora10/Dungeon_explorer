@@ -32,9 +32,13 @@ class FadeIn(Effect):
 
 class Flash(Effect):
 
-    def draw(self, frame):
-        overlay = np.full_like(frame, self.countdown, dtype=np.uint8)
-        frame[:] = np.clip(frame.astype(np.int16) + overlay, 0, 255).astype(np.uint8)
+    def draw(self, frame):  # <-- numpy array
+        frame[frame < self.countdown] = self.countdown
+        # if the countdown is bigger than a pixel value:
+        #    set pixel to countdown
+        # else:
+        #    leave pixel as it is
+        #frame[:, :] = self.countdown
 
 class ColorText(Effect):
 
