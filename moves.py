@@ -1,6 +1,7 @@
 from typing import Callable
 from pydantic import BaseModel
 
+
 class Move(BaseModel):
     tile: str
     from_x: int
@@ -11,6 +12,7 @@ class Move(BaseModel):
     speed: float = 1.0
     complete: bool = False
     finished: Callable = None
+
 
 def player_move_finished(game):
     print(game.x, game.y)

@@ -10,7 +10,7 @@ from moves import Move
 def test_open_door():
     # 1. prepare test data
     game = start_game()
-    assert game.level[3][2] == "d"
+    assert game.current_level.level[3][2] == "d"
 
     # 2. call the function you want to test
     move_player(game, "right")
@@ -18,5 +18,5 @@ def test_open_door():
     move_player(game, "right")
 
     # 3. check if the result is correct
-    assert game.level[3][2] == "."
+    assert game.current_level.level[3][2] == "."
     assert game.coins == 0

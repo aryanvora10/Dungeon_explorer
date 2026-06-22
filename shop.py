@@ -2,23 +2,30 @@ import os
 import numpy as np
 import cv2
 from pydantic import BaseModel
+from sound import select_sound, wrong_choice_sound
+from config import TILE_SIZE, read_image, SCREEN_SIZE_X, SCREEN_SIZE_Y
 
-from config import TILE_SIZE, read_image
+TILE_PATH = os.path.split(__file__)[0] + "/tiles"
+SHOP_BG_PATH = os.path.split(__file__)[0] + "/shop_small.png"
 
-TILE_PATH = os.path.split(__file__)[0] + '/tiles'
-SHOP_BG_PATH = os.path.split(__file__)[0] + '/shop_small.png'
+GAME_TITLE = "Dungeon Explorer"
 
-GAME_TITLE = "Shop"
+# Calculate the scaling factor based on dynamic TILE_SIZE (original base was 64)
+SHOP_SCALE = TILE_SIZE / 64.0
+SHOP_WIDTH = int(640 * SHOP_SCALE)
+SHOP_HEIGHT = int(640 * SHOP_SCALE)
 
-SCREEN_SIZE_X, SCREEN_SIZE_Y = 640, 640
+# Centering offsets on the fullscreen canvas
+SHOP_OFFSET_X = (SCREEN_SIZE_X - SHOP_WIDTH) // 2
+SHOP_OFFSET_Y = (SCREEN_SIZE_Y - SHOP_HEIGHT) // 2
 
-# shop layout constants
+# shop layout constants (scaled)
 SHOP_COLS = 3
-SHOP_START_X = 80
-SHOP_START_Y = 120
-SHOP_SPACING_X = 180
-SHOP_SPACING_Y = 200
-ITEM_SLOT_SIZE = TILE_SIZE + 20  # border around each item
+SHOP_START_X = int(80 * SHOP_SCALE)
+SHOP_START_Y = int(120 * SHOP_SCALE)
+SHOP_SPACING_X = int(180 * SHOP_SCALE)
+SHOP_SPACING_Y = int(200 * SHOP_SCALE)
+ITEM_SLOT_SIZE = TILE_SIZE + int(20 * SHOP_SCALE)  # border around each item
 
 # colors (BGR)
 COLOR_BG = (30, 20, 15)
@@ -42,12 +49,36 @@ class ShopItem(BaseModel):
 
 
 SHOP_INVENTORY = [
-    ShopItem(name="Long Sword", tile="long_sword", cost=5, description="A fine blade. +3 attack damage."),
-    ShopItem(name="Short Sword", tile="short_sword", cost=3, description="Quick and light. +1 attack damage."),
-    ShopItem(name="Bow", tile="bow", cost=4, description="Strike from afar. Ranged attack."),
-    ShopItem(name="Armor", tile="armor", cost=8, description="Heavy plate. Reduces damage taken."),
-    ShopItem(name="Shield", tile="shield", cost=6, description="Block incoming hits. +2 defense."),
-    ShopItem(name="Potion", tile="potion", cost=2, description="Restores 3 health points."),
+    ShopItem(
+        name="Long Sword",
+        tile="long_sword",
+        cost=5,
+        description="A fine blade. +3 attack damage.",
+    ),
+    ShopItem(
+        name="Short Sword",
+        tile="short_sword",
+        cost=3,
+        description="Quick and light. +1 attack damage.",
+    ),
+    ShopItem(
+        name="Bow", tile="bow", cost=4, description="Strike from afar. Ranged attack."
+    ),
+    ShopItem(
+        name="Armor",
+        tile="armor",
+        cost=8,
+        description="Heavy plate. Reduces damage taken.",
+    ),
+    ShopItem(
+        name="Shield",
+        tile="shield",
+        cost=6,
+        description="Block incoming hits. +2 defense.",
+    ),
+    ShopItem(
+        name="Potion", tile="potion", cost=2, description="Restores 3 health points."
+    ),
 ]
 
 
@@ -73,8 +104,9 @@ def get_item_slot_rect(index):
     """Get the (x, y) top-left pixel position of an item slot."""
     col = index % SHOP_COLS
     row = index // SHOP_COLS
-    x = SHOP_START_X + col * SHOP_SPACING_X
-    y = SHOP_START_Y + row * SHOP_SPACING_Y
+    # Incorporate the screen offsets and scaled spacing
+    x = SHOP_OFFSET_X + SHOP_START_X + col * SHOP_SPACING_X
+    y = SHOP_OFFSET_Y + SHOP_START_Y + row * SHOP_SPACING_Y
     return x, y
 
 
@@ -82,52 +114,102 @@ def draw_shop(game, shop, images):
     """Draw the shop screen."""
     frame = np.zeros((SCREEN_SIZE_Y, SCREEN_SIZE_X, 3), np.uint8)
 
-    # draw background image
+    # draw background image placed in the center
     bg = cv2.imread(SHOP_BG_PATH)
     if bg is not None:
-        bg = cv2.resize(bg, (SCREEN_SIZE_X, SCREEN_SIZE_Y))
-        frame[:] = bg
+        bg = cv2.resize(bg, (SHOP_WIDTH, SHOP_HEIGHT))
+        frame[
+            SHOP_OFFSET_Y : SHOP_OFFSET_Y + SHOP_HEIGHT,
+            SHOP_OFFSET_X : SHOP_OFFSET_X + SHOP_WIDTH,
+        ] = bg
     else:
-        frame[:] = COLOR_BG
+        frame[
+            SHOP_OFFSET_Y : SHOP_OFFSET_Y + SHOP_HEIGHT,
+            SHOP_OFFSET_X : SHOP_OFFSET_X + SHOP_WIDTH,
+        ] = COLOR_BG
 
     # draw title
-    cv2.putText(frame, "~ DUNGEON SHOP ~",
-                org=(130, 60),
-                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                fontScale=1.2, color=COLOR_TITLE, thickness=3)
+    cv2.putText(
+        frame,
+        "~ DUNGEON SHOP ~",
+        org=(
+            SHOP_OFFSET_X + int(130 * SHOP_SCALE),
+            SHOP_OFFSET_Y + int(60 * SHOP_SCALE),
+        ),
+        fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+        fontScale=1.2 * SHOP_SCALE,
+        color=COLOR_TITLE,
+        thickness=max(1, int(3 * SHOP_SCALE)),
+    )
 
     # draw coin count
     coin_img = images.get("coin")
     if coin_img is not None:
-        small_coin = cv2.resize(coin_img[:, :, :3] if coin_img.shape[2] >= 3 else coin_img, (28, 28))
-        frame[72:100, 20:48] = small_coin
-    cv2.putText(frame, str(game.coins),
-                org=(55, 96),
-                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                fontScale=0.8, color=COLOR_GOLD, thickness=2)
+        coin_size = int(28 * SHOP_SCALE)
+        small_coin = cv2.resize(
+            coin_img[:, :, :3] if coin_img.shape[2] >= 3 else coin_img,
+            (coin_size, coin_size),
+        )
+        y1 = SHOP_OFFSET_Y + int(72 * SHOP_SCALE)
+        x1 = SHOP_OFFSET_X + int(20 * SHOP_SCALE)
+        frame[y1 : y1 + coin_size, x1 : x1 + coin_size] = small_coin
+    cv2.putText(
+        frame,
+        str(game.coins),
+        org=(
+            SHOP_OFFSET_X + int(55 * SHOP_SCALE),
+            SHOP_OFFSET_Y + int(96 * SHOP_SCALE),
+        ),
+        fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+        fontScale=0.8 * SHOP_SCALE,
+        color=COLOR_GOLD,
+        thickness=max(1, int(2 * SHOP_SCALE)),
+    )
 
     # draw instruction
-    cv2.putText(frame, "WASD: move  ENTER: buy  Q: leave",
-                org=(100, SCREEN_SIZE_Y - 20),
-                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                fontScale=0.5, color=COLOR_GRAY, thickness=1)
+    cv2.putText(
+        frame,
+        "WASD: move  ENTER: buy  Q: leave",
+        org=(
+            SHOP_OFFSET_X + int(100 * SHOP_SCALE),
+            SHOP_OFFSET_Y + SHOP_HEIGHT - int(20 * SHOP_SCALE),
+        ),
+        fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+        fontScale=0.5 * SHOP_SCALE,
+        color=COLOR_GRAY,
+        thickness=max(1, int(1 * SHOP_SCALE)),
+    )
 
     # draw each item slot
     for i, item in enumerate(shop.items):
         x, y = get_item_slot_rect(i)
-        is_selected = (i == shop.selected)
+        is_selected = i == shop.selected
 
         # draw slot background
-        cv2.rectangle(frame, (x - 10, y - 10),
-                      (x + TILE_SIZE + 10, y + TILE_SIZE + 10),
-                      COLOR_PANEL, -1)
+        cv2.rectangle(
+            frame,
+            (x - int(10 * SHOP_SCALE), y - int(10 * SHOP_SCALE)),
+            (
+                x + TILE_SIZE + int(10 * SHOP_SCALE),
+                y + TILE_SIZE + int(10 * SHOP_SCALE),
+            ),
+            COLOR_PANEL,
+            -1,
+        )
 
         # draw border (highlighted if selected)
         border_color = COLOR_SELECTED if is_selected else COLOR_BORDER
-        thickness = 3 if is_selected else 1
-        cv2.rectangle(frame, (x - 10, y - 10),
-                      (x + TILE_SIZE + 10, y + TILE_SIZE + 10),
-                      border_color, thickness)
+        thickness = max(1, int(3 * SHOP_SCALE)) if is_selected else 1
+        cv2.rectangle(
+            frame,
+            (x - int(10 * SHOP_SCALE), y - int(10 * SHOP_SCALE)),
+            (
+                x + TILE_SIZE + int(10 * SHOP_SCALE),
+                y + TILE_SIZE + int(10 * SHOP_SCALE),
+            ),
+            border_color,
+            thickness,
+        )
 
         # draw item tile
         tile_img = images.get(item.tile)
@@ -136,47 +218,88 @@ def draw_shop(game, shop, images):
             if tile_img.shape[2] == 4:
                 # alpha-aware draw
                 mask = tile_img[:, :, 3] > 0
-                roi = frame[y:y + TILE_SIZE, x:x + TILE_SIZE]
+                roi = frame[y : y + TILE_SIZE, x : x + TILE_SIZE]
                 roi[mask] = tile_img[:, :, :3][mask]
             else:
-                frame[y:y + TILE_SIZE, x:x + TILE_SIZE] = img
+                frame[y : y + TILE_SIZE, x : x + TILE_SIZE] = img
 
         # draw item name below slot
-        cv2.putText(frame, item.name,
-                    org=(x - 8, y + TILE_SIZE + 30),
-                    fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                    fontScale=0.45, color=COLOR_WHITE, thickness=1)
+        cv2.putText(
+            frame,
+            item.name,
+            org=(x - int(8 * SHOP_SCALE), y + TILE_SIZE + int(30 * SHOP_SCALE)),
+            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+            fontScale=0.45 * SHOP_SCALE,
+            color=COLOR_WHITE,
+            thickness=max(1, int(1 * SHOP_SCALE)),
+        )
 
         # draw cost below name
         cost_color = COLOR_GREEN if game.coins >= item.cost else COLOR_RED
-        cv2.putText(frame, f"{item.cost} coins",
-                    org=(x - 5, y + TILE_SIZE + 50),
-                    fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                    fontScale=0.4, color=cost_color, thickness=1)
+        cv2.putText(
+            frame,
+            f"{item.cost} coins",
+            org=(x - int(5 * SHOP_SCALE), y + TILE_SIZE + int(50 * SHOP_SCALE)),
+            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+            fontScale=0.4 * SHOP_SCALE,
+            color=cost_color,
+            thickness=max(1, int(1 * SHOP_SCALE)),
+        )
 
         # draw "OWNED" if already in inventory
         if item.tile in game.items:
-            cv2.putText(frame, "OWNED",
-                        org=(x + 2, y + TILE_SIZE // 2 + 5),
-                        fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                        fontScale=0.5, color=COLOR_GREEN, thickness=2)
+            cv2.putText(
+                frame,
+                "OWNED",
+                org=(x + int(2 * SHOP_SCALE), y + TILE_SIZE // 2 + int(5 * SHOP_SCALE)),
+                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                fontScale=0.5 * SHOP_SCALE,
+                color=COLOR_GREEN,
+                thickness=max(1, int(2 * SHOP_SCALE)),
+            )
 
     # draw description panel for selected item
     selected_item = shop.items[shop.selected]
-    desc_y = SCREEN_SIZE_Y - 100
-    cv2.rectangle(frame, (30, desc_y - 10), (SCREEN_SIZE_X - 30, desc_y + 55),
-                  COLOR_DESC_BG, -1)
-    cv2.rectangle(frame, (30, desc_y - 10), (SCREEN_SIZE_X - 30, desc_y + 55),
-                  COLOR_BORDER, 1)
+    desc_y = SHOP_OFFSET_Y + SHOP_HEIGHT - int(100 * SHOP_SCALE)
+    cv2.rectangle(
+        frame,
+        (SHOP_OFFSET_X + int(30 * SHOP_SCALE), desc_y - int(10 * SHOP_SCALE)),
+        (
+            SHOP_OFFSET_X + SHOP_WIDTH - int(30 * SHOP_SCALE),
+            desc_y + int(55 * SHOP_SCALE),
+        ),
+        COLOR_DESC_BG,
+        -1,
+    )
+    cv2.rectangle(
+        frame,
+        (SHOP_OFFSET_X + int(30 * SHOP_SCALE), desc_y - int(10 * SHOP_SCALE)),
+        (
+            SHOP_OFFSET_X + SHOP_WIDTH - int(30 * SHOP_SCALE),
+            desc_y + int(55 * SHOP_SCALE),
+        ),
+        COLOR_BORDER,
+        1,
+    )
 
-    cv2.putText(frame, selected_item.name,
-                org=(45, desc_y + 15),
-                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                fontScale=0.6, color=COLOR_GOLD, thickness=2)
-    cv2.putText(frame, selected_item.description,
-                org=(45, desc_y + 40),
-                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                fontScale=0.4, color=COLOR_GRAY, thickness=1)
+    cv2.putText(
+        frame,
+        selected_item.name,
+        org=(SHOP_OFFSET_X + int(45 * SHOP_SCALE), desc_y + int(15 * SHOP_SCALE)),
+        fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+        fontScale=0.6 * SHOP_SCALE,
+        color=COLOR_GOLD,
+        thickness=max(1, int(2 * SHOP_SCALE)),
+    )
+    cv2.putText(
+        frame,
+        selected_item.description,
+        org=(SHOP_OFFSET_X + int(45 * SHOP_SCALE), desc_y + int(40 * SHOP_SCALE)),
+        fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+        fontScale=0.4 * SHOP_SCALE,
+        color=COLOR_GRAY,
+        thickness=max(1, int(1 * SHOP_SCALE)),
+    )
 
     cv2.imshow(GAME_TITLE, frame)
 
@@ -217,23 +340,34 @@ def visit_shop(game):
         elif action == "left":
             if shop.selected % SHOP_COLS > 0:
                 shop.selected -= 1
+                select_sound.play()
 
         elif action == "right":
-            if shop.selected % SHOP_COLS < SHOP_COLS - 1 and shop.selected + 1 < len(shop.items):
+            if shop.selected % SHOP_COLS < SHOP_COLS - 1 and shop.selected + 1 < len(
+                shop.items
+            ):
                 shop.selected += 1
+                select_sound.play()
 
         elif action == "up":
             if shop.selected - SHOP_COLS >= 0:
                 shop.selected -= SHOP_COLS
+                select_sound.play()
 
         elif action == "down":
             if shop.selected + SHOP_COLS < len(shop.items):
                 shop.selected += SHOP_COLS
+                select_sound.play()
 
         elif action == "buy":
             item = shop.items[shop.selected]
             if item.tile not in game.items and game.coins >= item.cost:
                 game.coins -= item.cost
                 game.items.append(item.tile)
+                select_sound.play()
+            else:
+                wrong_choice_sound.play()
 
-    cv2.destroyWindow(GAME_TITLE)
+    # We do not destroy the window here because the shop runs inside the same fullscreen game window.
+    # When shop closes, main game drawing automatically takes over.
+    pass
