@@ -73,6 +73,8 @@ class PressurePlate(BaseModel):
     y: int
     gate_x: int
     gate_y: int
+    original_gate_tile: str = None
+
 
 
 class Level(BaseModel):
@@ -100,6 +102,7 @@ class DungeonGame(BaseModel):
     return_y: int = 1
     explosions: list[Explosion] = []
     effects: list[Effect] = []
+    shield_hits: int = 0  # remaining shield uses (set to 2 when shield is bought)
 
 
 def parse_level(level: list[str]) -> list[list[str]]:
@@ -107,10 +110,16 @@ def parse_level(level: list[str]) -> list[list[str]]:
 
 
 def check_collision(game: DungeonGame) -> None:
-    for m in game.current_level.monsters:
+    has_sword = "long_sword" in game.items or "short_sword" in game.items
+    for m in list(game.current_level.monsters):
         if m.x == game.x and m.y == game.y:
-            take_damage(game)
-            return  # one hit per frame is enough
+            if has_sword and isinstance(m, Skeleton):
+                # kill the skeleton
+                game.current_level.monsters.remove(m)
+                game.explosions.append(Explosion(x=m.x, y=m.y))
+            else:
+                take_damage(game)
+            return  # one interaction per frame is enough
 
 
 def update_effects(game: DungeonGame) -> None:
@@ -131,10 +140,12 @@ def update(game: DungeonGame) -> None:
 
 def move_monster(game: DungeonGame, monster: Monster) -> None:
     new_x, new_y = get_next_position([monster.x, monster.y], monster.direction)
+    is_teleporter = any(t.x == new_x and t.y == new_y for t in game.current_level.teleporters)
     # Changed ".€k" to [".", "$", "K", "^"] to correctly match floors, coins, keys, and traps
     if (
         game.current_level.level[new_y][new_x] in [".", "$", "K", "^"]
         and get_box_at(game, new_x, new_y) is None
+        and not is_teleporter
     ):
         monster.move = Move(
             tile=monster.tile,
@@ -187,48 +198,83 @@ def is_tile_free_for_box(game: DungeonGame, x: int, y: int) -> bool:
     return True
 
 
+def is_gate_closing(game: DungeonGame, x: int, y: int) -> bool:
+    for m in game.moves:
+        if m.tile == "wall" and m.from_x == x and m.from_y == y - 1 and m.speed_y == 2:
+            return True
+    return False
+
+
+def close_gate(game: DungeonGame, x: int, y: int, tile: str, plate: PressurePlate) -> None:
+    # If a box is on the plate, or the player is on the gate tile, do NOT close the door!
+    if get_box_at(game, plate.x, plate.y) is not None or (game.x == x and game.y == y):
+        return
+    game.current_level.level[y][x] = tile
+
+
+def make_close_callback(gx, gy, ot, plate):
+    return lambda g: close_gate(g, gx, gy, ot, plate)
+
+
 def check_pressure_plates(game: DungeonGame) -> None:
     """Check if any box is on a pressure plate and open/close the corresponding gate."""
     for plate in game.current_level.pressure_plates:
         box_on_plate = get_box_at(game, plate.x, plate.y)
         gate_tile = game.current_level.level[plate.gate_y][plate.gate_x]
-        if box_on_plate is not None and gate_tile == "G":
-            # Open the gate with animation
-            game.current_level.level[plate.gate_y][plate.gate_x] = "d"
-            move = Move(
-                tile="wall",
-                from_x=plate.gate_x,
-                from_y=plate.gate_y,
-                speed_x=0,
-                speed_y=-2,
-            )
-            game.moves.append(move)
-            door_open_sound.play()
 
-        elif box_on_plate is not None and gate_tile == "#":
-            # Open a Secret Door!
-            game.current_level.level[plate.gate_y][plate.gate_x] = "S"
-            move = Move(
-                tile="wall",
-                from_x=plate.gate_x,
-                from_y=plate.gate_y,
-                speed_x=0,
-                speed_y=-2,
-            )
-            game.moves.append(move)
-            door_open_sound.play()
+        if plate.original_gate_tile is None:
+            plate.original_gate_tile = gate_tile
 
-        elif box_on_plate is None and gate_tile == "d":
-            # Close the gate with animation
-            game.current_level.level[plate.gate_y][plate.gate_x] = "G"
-            move = Move(
-                tile="wall",
-                from_x=plate.gate_x,
-                from_y=plate.gate_y - 1,
-                speed_x=0,
-                speed_y=2,
-            )
-            game.moves.append(move)
+        if box_on_plate is not None:
+            if gate_tile in ["G", "D"]:
+                # Open the gate/door with animation
+                game.current_level.level[plate.gate_y][plate.gate_x] = "d"
+                move = Move(
+                    tile="wall",
+                    from_x=plate.gate_x,
+                    from_y=plate.gate_y,
+                    speed_x=0,
+                    speed_y=-2,
+                )
+                game.moves.append(move)
+                door_open_sound.play()
+            elif gate_tile == "#":
+                # Open a Secret Door!
+                game.current_level.level[plate.gate_y][plate.gate_x] = "S"
+                move = Move(
+                    tile="wall",
+                    from_x=plate.gate_x,
+                    from_y=plate.gate_y,
+                    speed_x=0,
+                    speed_y=-2,
+                )
+                game.moves.append(move)
+                door_open_sound.play()
+        else:
+            if gate_tile == "d" and plate.original_gate_tile in ["G", "D"]:
+                if not is_gate_closing(game, plate.gate_x, plate.gate_y):
+                    # Close the gate/door with animation
+                    move = Move(
+                        tile="wall",
+                        from_x=plate.gate_x,
+                        from_y=plate.gate_y - 1,
+                        speed_x=0,
+                        speed_y=2,
+                    )
+                    move.finished = make_close_callback(plate.gate_x, plate.gate_y, plate.original_gate_tile, plate)
+                    game.moves.append(move)
+            elif gate_tile == "S" and plate.original_gate_tile == "#":
+                if not is_gate_closing(game, plate.gate_x, plate.gate_y):
+                    # Hide the secret door again
+                    move = Move(
+                        tile="wall",
+                        from_x=plate.gate_x,
+                        from_y=plate.gate_y - 1,
+                        speed_x=0,
+                        speed_y=2,
+                    )
+                    move.finished = make_close_callback(plate.gate_x, plate.gate_y, "#", plate)
+                    game.moves.append(move)
 
 
 def push_box(game: DungeonGame, box: Box, direction: str) -> bool:
@@ -236,7 +282,7 @@ def push_box(game: DungeonGame, box: Box, direction: str) -> bool:
     new_bx, new_by = get_next_position((box.x, box.y), direction)
     if is_tile_free_for_box(game, new_bx, new_by):
         # Animate the box moving
-        speed = 3.0 if game.current_level == SECRET_LEVEL else 1.5
+        speed = 1.5
         box.move = Move(
             tile="statue_orb",
             from_x=box.x,
@@ -270,7 +316,7 @@ def move_player(game: DungeonGame, direction: str, pulling: bool = False) -> Non
             # Box moved, player can step into its old position
             speed_x = target_x - game.x
             speed_y = target_y - game.y
-            speed = 3.0 if game.current_level == SECRET_LEVEL else 1.5
+            speed = 1.5
             move = Move(
                 tile="player",
                 from_x=game.x,
@@ -287,7 +333,7 @@ def move_player(game: DungeonGame, direction: str, pulling: bool = False) -> Non
     ):
         speed_x = target_x - game.x
         speed_y = target_y - game.y
-        speed = 4.0 if game.current_level == SECRET_LEVEL else 2.0
+        speed = 2.0
         move = Move(
             tile="player",
             from_x=game.x,
@@ -308,7 +354,7 @@ def move_player(game: DungeonGame, direction: str, pulling: bool = False) -> Non
             pull_box = get_box_at(game, behind_x, behind_y)
             if pull_box is not None:
                 # Pull the box to the player's old position
-                speed = 3.0 if game.current_level == SECRET_LEVEL else 1.5
+                speed = 1.5
                 pull_box.move = Move(
                     tile="statue_orb",
                     from_x=pull_box.x,
@@ -336,6 +382,9 @@ def move_player(game: DungeonGame, direction: str, pulling: bool = False) -> Non
         game.items.remove("key")
         game.current_level.level[new_y][new_x] = "d"
         door_open_sound.play()
+        for plate in game.current_level.pressure_plates:
+            if plate.gate_x == new_x and plate.gate_y == new_y:
+                plate.original_gate_tile = "d"
 
     if game.current_level.level[new_y][new_x] in [".", "^", "x", "u", "d", "S", "P"]:
         game.x = new_x
@@ -376,45 +425,29 @@ def move_player(game: DungeonGame, direction: str, pulling: bool = False) -> Non
         game.effects.append(Flash(x=new_x, y=new_y, countdown=255))
         game.current_level.level[new_y][new_x] = "."
         if game.moves:
-            game.moves[-1].finished = take_damage
+            game.moves[-1].finished = lambda g: take_damage(g, ignore_shield=True)
         else:
-            take_damage(game)
-
-    if (
-        game.x == 1
-        and game.y == 1
-        and game.current_level.level[1][0] == "#"
-        and game.current_level.has_secret_door
-    ):
-        game.current_level.level[1][0] = "S"
-        move = Move(tile="wall", from_x=0, from_y=1, speed_x=0, speed_y=-2)
-        game.moves.append(move)
-        door_open_sound.play()
-    elif (
-        (game.x != 1 or game.y != 1)
-        and game.current_level.level[1][0] == "S"
-        and not (game.x == 0 and game.y == 1)
-    ):
-        move = Move(
-            tile="wall",
-            from_x=0,
-            from_y=0,
-            speed_x=0,
-            speed_y=2,
-            finished=close_secret_door,
-        )
-        game.moves.append(move)
+            take_damage(game, ignore_shield=True)
 
     check_teleporters(game)
     check_collision(game)
     check_pressure_plates(game)
 
 
-def take_damage(game: DungeonGame) -> None:
+def take_damage(game: DungeonGame, ignore_shield: bool = False) -> None:
+    # enforce cooldown first so rapid hits don't stack
     current_time = time.time()
     if current_time - game.last_damage_time < 2.0:
         return
     game.last_damage_time = current_time
+
+    # shield blocks damage but breaks after 2 hits
+    if not ignore_shield and "shield" in game.items and game.shield_hits > 0:
+        game.shield_hits -= 1
+        if game.shield_hits <= 0:
+            game.items.remove("shield")
+        return
+
     game.health -= 1
     damage_sound.play()
     if game.health <= 0:

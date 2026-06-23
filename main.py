@@ -6,7 +6,7 @@ import os
 import numpy as np
 import cv2
 
-from sound import play_music, stop_music
+from sound import play_music, stop_music, victory_sound
 from cutscene import show_cutscene
 from game import start_game, move_player, update, update_effects
 from config import (
@@ -76,7 +76,7 @@ def draw_tile(frame, x, y, image, xbase=0, ybase=0) -> None:
 
     if tx1 >= tx2 or ty1 >= ty2:
         return  # Completely off-screen
-        
+
     # Source rect coordinates in image
     ix1 = tx1 - x1
     iy1 = ty1 - y1
@@ -226,15 +226,10 @@ def draw(game, images, moves):
         )
         draw_ui_element(frame, xpos, ypos, small_heart)
 
-    # tiles that are items on top of a floor
-    FLOOR_ITEMS = {"$", "^", "K", "h"}
-
     # draw dungeon tiles
     for y, row in enumerate(game.current_level.level):
         for x, tile in enumerate(row):
             if tile in SYMBOLS:
-                if tile in FLOOR_ITEMS:
-                    draw_tile(frame, x=x, y=y, image=images["floor"])
                 draw_tile(frame, x=x, y=y, image=images[SYMBOLS[tile]])
 
     # draw teleporters
@@ -307,6 +302,7 @@ def draw(game, images, moves):
 
     # display complete image
     cv2.imshow(GAME_TITLE, frame)
+    return frame
 
 
 def handle_keyboard(game):
@@ -326,6 +322,122 @@ def handle_keyboard(game):
     return None, False
 
 
+def show_game_over_animation(last_frame):
+    if last_frame is None:
+        last_frame = np.zeros((SCREEN_SIZE_Y, SCREEN_SIZE_X, 3), np.uint8)
+
+    # Step 1: Fade to black over 60 frames
+    for i in range(60):
+        alpha = i / 60.0
+        target = np.zeros_like(last_frame) # Solid black
+        frame = cv2.addWeighted(last_frame, 1.0 - alpha, target, alpha, 0)
+        cv2.imshow(GAME_TITLE, frame)
+        cv2.waitKey(16)
+
+    # Step 2: Flashing text on black background over 180 frames
+    base_frame = np.zeros_like(last_frame) # Solid black
+    
+    text = "GAME OVER"
+    font = cv2.FONT_HERSHEY_TRIPLEX
+    scale_factor = TILE_SIZE / 64.0
+    text_scale = scale_factor * 1.6
+    thickness = max(2, int(4 * text_scale))
+    
+    (text_width, text_height), _ = cv2.getTextSize(text, font, text_scale, thickness)
+    text_x = (SCREEN_SIZE_X - text_width) // 2
+    text_y = (SCREEN_SIZE_Y + text_height) // 2
+    
+    sub_text = "YOUR JOURNEY ENDS HERE"
+    sub_font = cv2.FONT_HERSHEY_SIMPLEX
+    sub_scale = scale_factor * 0.6
+    sub_thickness = max(1, int(2 * sub_scale))
+    (sub_w, sub_h), _ = cv2.getTextSize(sub_text, sub_font, sub_scale, sub_thickness)
+    sub_x = (SCREEN_SIZE_X - sub_w) // 2
+    sub_y = text_y + int(80 * scale_factor)
+
+    for i in range(180): # 3 seconds of flashing
+        frame = base_frame.copy()
+        
+        # Flash / blink effect: visible for 20 frames, hidden for 10 frames
+        is_visible = (i % 30) < 20
+        
+        if is_visible:
+            # Draw shadow
+            cv2.putText(frame, text, (text_x + 4, text_y + 4), font, text_scale, (0, 0, 0), thickness, cv2.LINE_AA)
+            # Draw main text (Red)
+            cv2.putText(frame, text, (text_x, text_y), font, text_scale, (0, 0, 255), thickness, cv2.LINE_AA)
+            
+            # Draw subtitle shadow
+            cv2.putText(frame, sub_text, (sub_x + 2, sub_y + 2), sub_font, sub_scale, (0, 0, 0), sub_thickness, cv2.LINE_AA)
+            # Draw subtitle main text (White/light gray)
+            cv2.putText(frame, sub_text, (sub_x, sub_y), sub_font, sub_scale, (200, 200, 200), sub_thickness, cv2.LINE_AA)
+            
+        cv2.imshow(GAME_TITLE, frame)
+        
+        key = cv2.waitKey(16) & 0xFF
+        if key != 255:
+            break
+
+
+def show_victory_animation(last_frame):
+    stop_music()
+    victory_sound.play()
+    if last_frame is None:
+        last_frame = np.zeros((SCREEN_SIZE_Y, SCREEN_SIZE_X, 3), np.uint8)
+
+    # Step 1: Fade to black over 60 frames
+    for i in range(60):
+        alpha = i / 60.0
+        target = np.zeros_like(last_frame) # Solid black
+        frame = cv2.addWeighted(last_frame, 1.0 - alpha, target, alpha, 0)
+        cv2.imshow(GAME_TITLE, frame)
+        cv2.waitKey(16)
+
+    # Step 2: Flashing text on black background over 180 frames
+    base_frame = np.zeros_like(last_frame) # Solid black
+    
+    text = "VICTORY!"
+    font = cv2.FONT_HERSHEY_TRIPLEX
+    scale_factor = TILE_SIZE / 64.0
+    text_scale = scale_factor * 1.6
+    thickness = max(2, int(4 * text_scale))
+    
+    (text_width, text_height), _ = cv2.getTextSize(text, font, text_scale, thickness)
+    text_x = (SCREEN_SIZE_X - text_width) // 2
+    text_y = (SCREEN_SIZE_Y + text_height) // 2
+    
+    sub_text = "YOU CONQUERED THE DUNGEON"
+    sub_font = cv2.FONT_HERSHEY_SIMPLEX
+    sub_scale = scale_factor * 0.6
+    sub_thickness = max(1, int(2 * sub_scale))
+    (sub_w, sub_h), _ = cv2.getTextSize(sub_text, sub_font, sub_scale, sub_thickness)
+    sub_x = (SCREEN_SIZE_X - sub_w) // 2
+    sub_y = text_y + int(80 * scale_factor)
+
+    for i in range(180): # 3 seconds of flashing
+        frame = base_frame.copy()
+        
+        # Flash / blink effect: visible for 20 frames, hidden for 10 frames
+        is_visible = (i % 30) < 20
+        
+        if is_visible:
+            # Draw shadow
+            cv2.putText(frame, text, (text_x + 4, text_y + 4), font, text_scale, (0, 0, 0), thickness, cv2.LINE_AA)
+            # Draw main text (Gold/Yellow: BGR 0, 215, 255)
+            cv2.putText(frame, text, (text_x, text_y), font, text_scale, (0, 215, 255), thickness, cv2.LINE_AA)
+            
+            # Draw subtitle shadow
+            cv2.putText(frame, sub_text, (sub_x + 2, sub_y + 2), sub_font, sub_scale, (0, 0, 0), sub_thickness, cv2.LINE_AA)
+            # Draw subtitle main text (White/light gray)
+            cv2.putText(frame, sub_text, (sub_x, sub_y), sub_font, sub_scale, (200, 200, 200), sub_thickness, cv2.LINE_AA)
+            
+        cv2.imshow(GAME_TITLE, frame)
+        
+        key = cv2.waitKey(16) & 0xFF
+        if key != 255:
+            break
+
+
 def main():
     if not show_cutscene():
         cv2.destroyAllWindows()
@@ -338,10 +450,22 @@ def main():
 
     images = read_images()
     game = start_game()
+
     queued_move = None
     moves = []
+    current_level = game.current_level
+    last_frame = None
     while game.status == "running":
-        draw(game, images, moves)
+        # clear leftover animations from the old level on transitions
+        if game.current_level is not current_level:
+            moves.clear()
+            current_level = game.current_level
+            # reset monster/box move states so they aren't stuck mid-animation
+            for m in current_level.monsters:
+                m.move = None
+            for b in current_level.boxes:
+                b.move = None
+        last_frame = draw(game, images, moves)
         update(game)
         update_effects(game)
         moves = clean_moves(game, moves)
@@ -349,6 +473,11 @@ def main():
         queued_move, pulling = handle_keyboard(game)
         if not is_player_moving(moves):
             move_player(game, queued_move, pulling)
+
+    if game.status == "game over":
+        show_game_over_animation(last_frame)
+    elif game.status == "finished":
+        show_victory_animation(last_frame)
 
     cv2.destroyAllWindows()
     stop_music()

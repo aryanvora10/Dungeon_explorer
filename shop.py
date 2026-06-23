@@ -6,7 +6,7 @@ from sound import select_sound, wrong_choice_sound
 from config import TILE_SIZE, read_image, SCREEN_SIZE_X, SCREEN_SIZE_Y
 
 TILE_PATH = os.path.split(__file__)[0] + "/tiles"
-SHOP_BG_PATH = os.path.split(__file__)[0] + "/shop_small.png"
+SHOP_BG_PATH = os.path.split(__file__)[0] + "/images/shop_small.png"
 
 GAME_TITLE = "Dungeon Explorer"
 
@@ -302,6 +302,7 @@ def draw_shop(game, shop, images):
     )
 
     cv2.imshow(GAME_TITLE, frame)
+    return frame
 
 
 def handle_shop_keyboard():
@@ -364,6 +365,9 @@ def visit_shop(game):
             if item.tile not in game.items and game.coins >= item.cost:
                 game.coins -= item.cost
                 game.items.append(item.tile)
+                # shield gets 2 uses before it breaks
+                if item.tile == "shield":
+                    game.shield_hits = 2
                 select_sound.play()
             else:
                 wrong_choice_sound.play()

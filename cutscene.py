@@ -7,7 +7,7 @@ from sound import select_sound
 
 def show_cutscene():
     # load the title image
-    title_path = os.path.split(__file__)[0] + "/title.png"
+    title_path = os.path.split(__file__)[0] + "/images/title.png"
     img = cv2.imread(title_path)
     if img is None:
         return False
@@ -105,6 +105,5 @@ def show_cutscene():
                 select_sound.play()
         elif key == 13 or key == 32:  # Enter or Space
             break
-        
 
     return selected_option == 0

@@ -60,8 +60,22 @@ def read_image(filename: str) -> np.ndarray:
 
 
 def read_images():
-    return {
+    images = {
         filename[:-4]: read_image(os.path.join(TILE_PATH, filename))
         for filename in os.listdir(TILE_PATH)
         if filename.endswith(".png")
     }
+    # Pre-composite floor items onto the floor tile so each only needs
+    # a single fast blit instead of two alpha-blended draws per frame.
+    floor_img = images["floor"]
+    for item_name in ("coin", "trap", "key", "potion"):
+        if item_name in images:
+            item_img = images[item_name]
+            composite = floor_img.copy()
+            if item_img.shape[2] == 4:
+                mask = item_img[:, :, 3] > 0
+                composite[mask] = item_img[:, :, :3][mask]
+            else:
+                composite[:] = item_img
+            images[item_name] = composite  # now 3-channel, no alpha
+    return images
