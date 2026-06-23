@@ -64,6 +64,7 @@ def test_shield_blocks_monster_but_not_trap():
 def test_pressure_plate_gates():
     from game import PressurePlate, Box, check_pressure_plates
     from main import clean_moves
+
     game = start_game()
 
     # Let's set up a custom pressure plate at (3, 3) targeting a closed door D at (4, 3)
@@ -142,6 +143,7 @@ def test_pressure_plate_gates():
 
 def test_monster_cant_step_on_teleporters():
     from game import Teleporter, Skeleton, move_monster
+
     game = start_game()
     # Add a teleporter at (2, 1) which is adjacent to player start (1, 1)
     teleporter = Teleporter(x=2, y=1, target_x=13, target_y=1)
@@ -158,5 +160,3 @@ def test_monster_cant_step_on_teleporters():
     assert skeleton.x == 1
     assert skeleton.y == 1
     assert skeleton.direction == "left"
-
-

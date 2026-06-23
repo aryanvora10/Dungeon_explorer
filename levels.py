@@ -17,7 +17,7 @@ def create_levels():
             "#$#...#.#^#...#",
             "#$###...^^###.#",
             "#$#h..#.......#",
-            "#$##.######^..#",  
+            "#$##.######^..#",
             "#$#.......#^^.#",
             "#$#...P.#.###.#",
             ".$#.....#D..x##",
@@ -63,8 +63,8 @@ def create_levels():
         level=level_map_1,
         has_secret_door=True,
         teleporters=[
-            Teleporter(x=0, y=9, target_x=13, target_y=1), 
-            Teleporter(x=14, y=1, target_x=1, target_y=1)
+            Teleporter(x=0, y=9, target_x=13, target_y=1),
+            Teleporter(x=14, y=1, target_x=1, target_y=1),
         ],
         monsters=[
             Fireball(x=9, y=1, direction="left"),

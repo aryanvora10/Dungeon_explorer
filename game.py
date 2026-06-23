@@ -76,7 +76,6 @@ class PressurePlate(BaseModel):
     original_gate_tile: str = None
 
 
-
 class Level(BaseModel):
     level: list[list[str]]
     teleporters: list[Teleporter] = []
@@ -140,7 +139,9 @@ def update(game: DungeonGame) -> None:
 
 def move_monster(game: DungeonGame, monster: Monster) -> None:
     new_x, new_y = get_next_position([monster.x, monster.y], monster.direction)
-    is_teleporter = any(t.x == new_x and t.y == new_y for t in game.current_level.teleporters)
+    is_teleporter = any(
+        t.x == new_x and t.y == new_y for t in game.current_level.teleporters
+    )
     # Changed ".€k" to [".", "$", "K", "^"] to correctly match floors, coins, keys, and traps
     if (
         game.current_level.level[new_y][new_x] in [".", "$", "K", "^"]
@@ -205,7 +206,9 @@ def is_gate_closing(game: DungeonGame, x: int, y: int) -> bool:
     return False
 
 
-def close_gate(game: DungeonGame, x: int, y: int, tile: str, plate: PressurePlate) -> None:
+def close_gate(
+    game: DungeonGame, x: int, y: int, tile: str, plate: PressurePlate
+) -> None:
     # If a box is on the plate, or the player is on the gate tile, do NOT close the door!
     if get_box_at(game, plate.x, plate.y) is not None or (game.x == x and game.y == y):
         return
@@ -261,7 +264,9 @@ def check_pressure_plates(game: DungeonGame) -> None:
                         speed_x=0,
                         speed_y=2,
                     )
-                    move.finished = make_close_callback(plate.gate_x, plate.gate_y, plate.original_gate_tile, plate)
+                    move.finished = make_close_callback(
+                        plate.gate_x, plate.gate_y, plate.original_gate_tile, plate
+                    )
                     game.moves.append(move)
             elif gate_tile == "S" and plate.original_gate_tile == "#":
                 if not is_gate_closing(game, plate.gate_x, plate.gate_y):
@@ -273,7 +278,9 @@ def check_pressure_plates(game: DungeonGame) -> None:
                         speed_x=0,
                         speed_y=2,
                     )
-                    move.finished = make_close_callback(plate.gate_x, plate.gate_y, "#", plate)
+                    move.finished = make_close_callback(
+                        plate.gate_x, plate.gate_y, "#", plate
+                    )
                     game.moves.append(move)
 
 

@@ -329,24 +329,24 @@ def show_game_over_animation(last_frame):
     # Step 1: Fade to black over 60 frames
     for i in range(60):
         alpha = i / 60.0
-        target = np.zeros_like(last_frame) # Solid black
+        target = np.zeros_like(last_frame)  # Solid black
         frame = cv2.addWeighted(last_frame, 1.0 - alpha, target, alpha, 0)
         cv2.imshow(GAME_TITLE, frame)
         cv2.waitKey(16)
 
     # Step 2: Flashing text on black background over 180 frames
-    base_frame = np.zeros_like(last_frame) # Solid black
-    
+    base_frame = np.zeros_like(last_frame)  # Solid black
+
     text = "GAME OVER"
     font = cv2.FONT_HERSHEY_TRIPLEX
     scale_factor = TILE_SIZE / 64.0
     text_scale = scale_factor * 1.6
     thickness = max(2, int(4 * text_scale))
-    
+
     (text_width, text_height), _ = cv2.getTextSize(text, font, text_scale, thickness)
     text_x = (SCREEN_SIZE_X - text_width) // 2
     text_y = (SCREEN_SIZE_Y + text_height) // 2
-    
+
     sub_text = "YOUR JOURNEY ENDS HERE"
     sub_font = cv2.FONT_HERSHEY_SIMPLEX
     sub_scale = scale_factor * 0.6
@@ -355,25 +355,61 @@ def show_game_over_animation(last_frame):
     sub_x = (SCREEN_SIZE_X - sub_w) // 2
     sub_y = text_y + int(80 * scale_factor)
 
-    for i in range(180): # 3 seconds of flashing
+    for i in range(180):  # 3 seconds of flashing
         frame = base_frame.copy()
-        
+
         # Flash / blink effect: visible for 20 frames, hidden for 10 frames
         is_visible = (i % 30) < 20
-        
+
         if is_visible:
             # Draw shadow
-            cv2.putText(frame, text, (text_x + 4, text_y + 4), font, text_scale, (0, 0, 0), thickness, cv2.LINE_AA)
+            cv2.putText(
+                frame,
+                text,
+                (text_x + 4, text_y + 4),
+                font,
+                text_scale,
+                (0, 0, 0),
+                thickness,
+                cv2.LINE_AA,
+            )
             # Draw main text (Red)
-            cv2.putText(frame, text, (text_x, text_y), font, text_scale, (0, 0, 255), thickness, cv2.LINE_AA)
-            
+            cv2.putText(
+                frame,
+                text,
+                (text_x, text_y),
+                font,
+                text_scale,
+                (0, 0, 255),
+                thickness,
+                cv2.LINE_AA,
+            )
+
             # Draw subtitle shadow
-            cv2.putText(frame, sub_text, (sub_x + 2, sub_y + 2), sub_font, sub_scale, (0, 0, 0), sub_thickness, cv2.LINE_AA)
+            cv2.putText(
+                frame,
+                sub_text,
+                (sub_x + 2, sub_y + 2),
+                sub_font,
+                sub_scale,
+                (0, 0, 0),
+                sub_thickness,
+                cv2.LINE_AA,
+            )
             # Draw subtitle main text (White/light gray)
-            cv2.putText(frame, sub_text, (sub_x, sub_y), sub_font, sub_scale, (200, 200, 200), sub_thickness, cv2.LINE_AA)
-            
+            cv2.putText(
+                frame,
+                sub_text,
+                (sub_x, sub_y),
+                sub_font,
+                sub_scale,
+                (200, 200, 200),
+                sub_thickness,
+                cv2.LINE_AA,
+            )
+
         cv2.imshow(GAME_TITLE, frame)
-        
+
         key = cv2.waitKey(16) & 0xFF
         if key != 255:
             break
@@ -388,24 +424,24 @@ def show_victory_animation(last_frame):
     # Step 1: Fade to black over 60 frames
     for i in range(60):
         alpha = i / 60.0
-        target = np.zeros_like(last_frame) # Solid black
+        target = np.zeros_like(last_frame)  # Solid black
         frame = cv2.addWeighted(last_frame, 1.0 - alpha, target, alpha, 0)
         cv2.imshow(GAME_TITLE, frame)
         cv2.waitKey(16)
 
     # Step 2: Flashing text on black background over 180 frames
-    base_frame = np.zeros_like(last_frame) # Solid black
-    
+    base_frame = np.zeros_like(last_frame)  # Solid black
+
     text = "VICTORY!"
     font = cv2.FONT_HERSHEY_TRIPLEX
     scale_factor = TILE_SIZE / 64.0
     text_scale = scale_factor * 1.6
     thickness = max(2, int(4 * text_scale))
-    
+
     (text_width, text_height), _ = cv2.getTextSize(text, font, text_scale, thickness)
     text_x = (SCREEN_SIZE_X - text_width) // 2
     text_y = (SCREEN_SIZE_Y + text_height) // 2
-    
+
     sub_text = "YOU CONQUERED THE DUNGEON"
     sub_font = cv2.FONT_HERSHEY_SIMPLEX
     sub_scale = scale_factor * 0.6
@@ -414,25 +450,61 @@ def show_victory_animation(last_frame):
     sub_x = (SCREEN_SIZE_X - sub_w) // 2
     sub_y = text_y + int(80 * scale_factor)
 
-    for i in range(180): # 3 seconds of flashing
+    for i in range(180):  # 3 seconds of flashing
         frame = base_frame.copy()
-        
+
         # Flash / blink effect: visible for 20 frames, hidden for 10 frames
         is_visible = (i % 30) < 20
-        
+
         if is_visible:
             # Draw shadow
-            cv2.putText(frame, text, (text_x + 4, text_y + 4), font, text_scale, (0, 0, 0), thickness, cv2.LINE_AA)
+            cv2.putText(
+                frame,
+                text,
+                (text_x + 4, text_y + 4),
+                font,
+                text_scale,
+                (0, 0, 0),
+                thickness,
+                cv2.LINE_AA,
+            )
             # Draw main text (Gold/Yellow: BGR 0, 215, 255)
-            cv2.putText(frame, text, (text_x, text_y), font, text_scale, (0, 215, 255), thickness, cv2.LINE_AA)
-            
+            cv2.putText(
+                frame,
+                text,
+                (text_x, text_y),
+                font,
+                text_scale,
+                (0, 215, 255),
+                thickness,
+                cv2.LINE_AA,
+            )
+
             # Draw subtitle shadow
-            cv2.putText(frame, sub_text, (sub_x + 2, sub_y + 2), sub_font, sub_scale, (0, 0, 0), sub_thickness, cv2.LINE_AA)
+            cv2.putText(
+                frame,
+                sub_text,
+                (sub_x + 2, sub_y + 2),
+                sub_font,
+                sub_scale,
+                (0, 0, 0),
+                sub_thickness,
+                cv2.LINE_AA,
+            )
             # Draw subtitle main text (White/light gray)
-            cv2.putText(frame, sub_text, (sub_x, sub_y), sub_font, sub_scale, (200, 200, 200), sub_thickness, cv2.LINE_AA)
-            
+            cv2.putText(
+                frame,
+                sub_text,
+                (sub_x, sub_y),
+                sub_font,
+                sub_scale,
+                (200, 200, 200),
+                sub_thickness,
+                cv2.LINE_AA,
+            )
+
         cv2.imshow(GAME_TITLE, frame)
-        
+
         key = cv2.waitKey(16) & 0xFF
         if key != 255:
             break
